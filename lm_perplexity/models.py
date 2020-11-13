@@ -80,7 +80,7 @@ class GPT3LM(LM):
         if self.verbose:
             print("Context:", self.tokenizer.convert_ids_to_tokens(token_ids))
             print("Predicting:", self.tokenizer.convert_ids_to_tokens(token_ids)[pred_start:])
-            print("Perplexity:", 2 ** (-logprobs.mean()))
+            print("Perplexity:", np.exp(-logprobs.mean()))
             print()
         return logprobs
 
@@ -147,7 +147,7 @@ class GPT2LM(LM):
         if self.verbose:
             print("Context:", self.tokenizer.convert_ids_to_tokens(token_ids))
             print("Predicting:", self.tokenizer.convert_ids_to_tokens(token_ids)[pred_start:])
-            print("Perplexity:", 2 ** neg_logprobs.mean())
+            print("Perplexity:", np.exp(neg_logprobs.mean()))
             print()
         return - neg_logprobs
 

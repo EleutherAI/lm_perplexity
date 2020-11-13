@@ -1,5 +1,6 @@
 import argparse
 import json
+import numpy as np
 from tqdm import auto as tqdm_lib
 
 import lm_dataformat
@@ -28,7 +29,7 @@ def compute_perplexity(model, data_path, max_docs=None):
         if max_docs is not None and i == max_docs:
             break
     return {
-        "perplexity": float(2 ** (-aggregate_logprobs / aggregate_length)),
+        "perplexity": float(np.exp(-aggregate_logprobs / aggregate_length)),
         "num_tokens": int(aggregate_length),
     }
 
