@@ -76,11 +76,13 @@ class GPT3LM(LM):
             logprobs=0,
             echo=True,
         )
+        logprobs = np.array(response["choices"][0]["logprobs"]["token_logprobs"][pred_start:])
         if self.verbose:
             print("Context:", self.tokenizer.convert_ids_to_tokens(token_ids))
             print("Predicting:", self.tokenizer.convert_ids_to_tokens(token_ids)[pred_start:])
+            print("Perplexity:", 2 ** (-logprobs.mean()))
             print()
-        return np.array(response["choices"][0]["logprobs"]["token_logprobs"][pred_start:])
+        return logprobs
 
     @classmethod
     def create_from_config(cls, config):
@@ -141,12 +143,13 @@ class GPT2LM(LM):
         output = self.model(token_ids[:-1], return_dict=True)
         loss_fct = nn.CrossEntropyLoss(reduction="none")
         # Reverse the 1-offset from above
-        neg_logprobs = loss_fct(output.logits[pred_start-1:], token_ids[pred_start:])
+        neg_logprobs = loss_fct(output.logits[pred_start-1:], token_ids[pred_start:]).detach().cpu().numpy()
         if self.verbose:
             print("Context:", self.tokenizer.convert_ids_to_tokens(token_ids))
             print("Predicting:", self.tokenizer.convert_ids_to_tokens(token_ids)[pred_start:])
+            print("Perplexity:", 2 ** neg_logprobs.mean())
             print()
-        return - neg_logprobs.detach().cpu().numpy()
+        return - neg_logprobs
 
     @classmethod
     def create_from_config(cls, config):

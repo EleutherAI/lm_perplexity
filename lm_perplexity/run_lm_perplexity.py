@@ -35,7 +35,7 @@ def compute_perplexity(model, data_path, max_docs=None):
 
 def main():
     args = parse_args()
-    model = models.create_model(args.config_path)
+    model = models.create_model(args.model_config_path)
     perplexity_data = compute_perplexity(
         model=model,
         data_path=args.data_path,
