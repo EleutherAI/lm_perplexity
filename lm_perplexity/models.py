@@ -44,19 +44,30 @@ class GPT3LM(LM):
 
         # noinspection PyListCreation
         all_logprobs = []
+        logprobs_position_buckets = utils.LogprobsPositionBuckets(self.max_seq_len)
         # Special handling for first window, which has no context:
         #   - We add a prefix token, and compute logprobs for all tokens in the first window
-        all_logprobs.append(self.get_token_logprobs(
+        block_output = self.get_token_logprobs(
             token_ids=[self.end_of_text_token_id] + token_windows_and_pred_start[0][0],
             pred_start=1,
-        ))
+        )
+        all_logprobs.append(block_output["logprobs"])
+        logprobs_position_buckets.update_single(
+            logprobs=block_output["logprobs"],
+            positions=block_output["positions"],
+        )
 
         # Remaining windows
         for token_window, pred_start in token_windows_and_pred_start[1:]:
-            all_logprobs.append(self.get_token_logprobs(
+            block_output = self.get_token_logprobs(
                 token_ids=token_window,
                 pred_start=pred_start,
-            ))
+            )
+            all_logprobs.append(block_output["logprobs"])
+            logprobs_position_buckets.update_single(
+                logprobs=block_output["logprobs"],
+                positions=block_output["positions"],
+            )
 
         # Gather
         all_logprobs = np.concatenate(all_logprobs)
@@ -64,6 +75,7 @@ class GPT3LM(LM):
         return {
             "avg_logprobs": np.mean(all_logprobs),
             "length": len(all_logprobs),
+            "logprobs_position_buckets": logprobs_position_buckets,
             # "token_logprobs": all_logprobs,
         }
 
@@ -82,7 +94,13 @@ class GPT3LM(LM):
             print("Predicting:", self.tokenizer.convert_ids_to_tokens(token_ids)[pred_start:])
             print("Perplexity:", np.exp(-logprobs.mean()))
             print()
-        return logprobs
+
+        positions = np.arange(pred_start-1, pred_start-1 + len(token_ids[pred_start:]))
+
+        return {
+            "logprobs": logprobs,
+            "positions": positions,
+        }
 
     @classmethod
     def create_from_config(cls, config):
@@ -114,18 +132,30 @@ class GPT2LM(LM):
 
         # noinspection PyListCreation
         all_logprobs = []
+        logprobs_position_buckets = utils.LogprobsPositionBuckets(self.max_seq_len)
         # Special handling for first window, which has no context:
-        all_logprobs.append(self.get_token_logprobs(
+        #   - We add a prefix token, and compute logprobs for all tokens in the first window
+        block_output = self.get_token_logprobs(
             token_ids=[self.end_of_text_token_id] + token_windows_and_pred_start[0][0],
             pred_start=1,
-        ))
+        )
+        all_logprobs.append(block_output["logprobs"])
+        logprobs_position_buckets.update_single(
+            logprobs=block_output["logprobs"],
+            positions=block_output["positions"],
+        )
 
         # Remaining windows
         for token_window, pred_start in token_windows_and_pred_start[1:]:
-            all_logprobs.append(self.get_token_logprobs(
+            block_output = self.get_token_logprobs(
                 token_ids=token_window,
                 pred_start=pred_start,
-            ))
+            )
+            all_logprobs.append(block_output["logprobs"])
+            logprobs_position_buckets.update_single(
+                logprobs=block_output["logprobs"],
+                positions=block_output["positions"],
+            )
 
         # Gather
         all_logprobs = np.concatenate(all_logprobs)
@@ -133,6 +163,7 @@ class GPT2LM(LM):
         return {
             "avg_logprobs": np.mean(all_logprobs),
             "length": len(all_logprobs),
+            "logprobs_position_buckets": logprobs_position_buckets,
             # "token_logprobs": all_logprobs,
         }
 
@@ -149,7 +180,14 @@ class GPT2LM(LM):
             print("Predicting:", self.tokenizer.convert_ids_to_tokens(token_ids)[pred_start:])
             print("Perplexity:", np.exp(neg_logprobs.mean()))
             print()
-        return - neg_logprobs
+
+        positions = np.arange(pred_start-1, pred_start-1 + len(token_ids[pred_start:]))
+        import pdb; pdb.set_trace()
+
+        return {
+            "logprobs": - neg_logprobs,
+            "positions": positions,
+        }
 
     @classmethod
     def create_from_config(cls, config):

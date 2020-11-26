@@ -1,5 +1,6 @@
 {
   "model_type": "gpt2",
   "model_name": "gpt2-medium",
+  "context_len": 1,
   "device": "cuda:0"
 }
