@@ -25,6 +25,7 @@ class GPT3LM(LM):
         self.engine = engine
         self.context_len = context_len
         self.max_seq_len = max_seq_len
+        self.wb = utils.WaitBlocker()
         self.verbose = verbose
 
         self.tokenizer = transformers.GPT2Tokenizer.from_pretrained('gpt2-xl')
@@ -75,14 +76,15 @@ class GPT3LM(LM):
         # In the longest case, this gets us to length = max_seq_len+1 (which the API works with)
         assert input_tokens[pred_start:] == pred_tokens[:-1]
         token_ids = input_tokens + [pred_tokens[-1]]
-        response = openai.Completion.create(
-            engine=self.engine,
-            prompt=token_ids,
-            max_tokens=0,
-            temperature=0.0,
-            logprobs=0,
-            echo=True,
-        )
+        with self.wb.check_valid():
+            response = openai.Completion.create(
+                engine=self.engine,
+                prompt=token_ids,
+                max_tokens=0,
+                temperature=0.0,
+                logprobs=0,
+                echo=True,
+            )
         logprobs = np.array(response["choices"][0]["logprobs"]["token_logprobs"][pred_start:])
         if self.verbose:
             print("Context:", self.tokenizer.convert_ids_to_tokens(token_ids))
@@ -168,6 +170,7 @@ class GPT2LM(LM):
             print()
 
         positions = np.arange(len(input_tokens) - len(pred_tokens), len(input_tokens))
+        import pdb; pdb.set_trace()
 
         return {
             "logprobs": - neg_logprobs,

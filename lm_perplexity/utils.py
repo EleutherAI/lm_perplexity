@@ -1,5 +1,10 @@
+import contextlib
 import json
 import numpy as np
+import time
+
+WB_MAX_IN_TIME_SPAN = 600
+WB_TIME_SPAN = 60
 
 
 def read_json(path, **kwargs):
@@ -77,3 +82,33 @@ class LogprobsPositionBuckets:
             "logprobs": self.aggregate_logprobs / self.counts,
             "counts": self.counts,
         }
+
+
+class WaitBlocker:
+    def __init__(self, backoff=1, verbose=True, max_in_time_span=WB_MAX_IN_TIME_SPAN, time_span=WB_TIME_SPAN):
+        self.backoff = backoff
+        self.verbose = verbose
+        self.max_in_time_span = max_in_time_span
+        self.time_span = time_span
+        self.record = []
+
+    def wait_until_valid(self):
+        i = 0
+        now = time.time()
+        for i in range(len(self.record)):
+            if self.record[i] > now - self.time_span:
+                break
+        self.record = self.record[i:]
+        if len(self.record) >= self.max_in_time_span:
+            delta = self.record[i] - now + self.time_span
+            print(f"Backing off for {delta:.1f}")
+            time.sleep(delta)
+
+    def add_record(self):
+        self.record.append(time.time())
+
+    @contextlib.contextmanager
+    def check_valid(self):
+        self.wait_until_valid()
+        yield
+        self.add_record()
