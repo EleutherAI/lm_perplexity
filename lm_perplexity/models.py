@@ -1,5 +1,6 @@
 import numpy as np
 import os
+from typing import Optional
 
 import openai
 import torch
@@ -10,7 +11,7 @@ import lm_perplexity.utils as utils
 
 
 class LM:
-    def get_perplexity_data(self, text) -> dict:
+    def get_perplexity_data(self, text) -> Optional[dict]:
         raise NotImplementedError
 
     @classmethod
@@ -43,6 +44,8 @@ class GPT3LM(LM):
             max_seq_len=self.max_seq_len,
             context_len=self.context_len,
         )
+        if not rolling_token_windows:
+            return
 
         # noinspection PyListCreation
         all_logprobs = []
@@ -127,6 +130,8 @@ class GPT2LM(LM):
             max_seq_len=self.max_seq_len,
             context_len=self.context_len,
         )
+        if not rolling_token_windows:
+            return
 
         # noinspection PyListCreation
         all_logprobs = []

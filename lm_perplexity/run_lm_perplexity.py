@@ -25,6 +25,8 @@ def compute_perplexity(model, data_path, max_docs=None):
     reader = lm_dataformat.Reader(data_path)
     for i, doc in enumerate(tqdm_lib.tqdm(reader.stream_data())):
         output = model.get_perplexity_data(doc)
+        if not output:
+            return
         aggregate_logprobs += output["avg_logprobs"] * output["length"]
         aggregate_length += output["length"]
         aggregate_logprobs_position_buckets.update_with_buckets(buckets=output["logprobs_position_buckets"])
