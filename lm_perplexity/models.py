@@ -36,7 +36,7 @@ class GPT3LM(LM):
         openai.api_key = os.environ["OPENAI_API_SECRET_KEY"]
 
     # noinspection DuplicatedCode
-    def get_perplexity_data(self, text) -> dict:
+    def get_perplexity_data(self, text) -> Optional[dict]:
         input_ids = self.tokenizer.encode_plus(text)["input_ids"]
         rolling_token_windows = utils.get_rolling_token_windows(
             token_list=input_ids,
@@ -44,8 +44,6 @@ class GPT3LM(LM):
             max_seq_len=self.max_seq_len,
             context_len=self.context_len,
         )
-        if not rolling_token_windows:
-            return
 
         # noinspection PyListCreation
         all_logprobs = []
@@ -62,6 +60,9 @@ class GPT3LM(LM):
                 logprobs=block_output["logprobs"],
                 positions=block_output["positions"],
             )
+
+        if not all_logprobs:
+            return None
 
         # Gather
         all_logprobs = np.concatenate(all_logprobs)
@@ -122,7 +123,7 @@ class GPT2LM(LM):
         self.end_of_text_token_id = self.tokenizer.convert_tokens_to_ids(["<|endoftext|>"])[0]
 
     # noinspection DuplicatedCode
-    def get_perplexity_data(self, text) -> dict:
+    def get_perplexity_data(self, text) -> Optional[dict]:
         input_ids = self.tokenizer.encode_plus(text)["input_ids"]
         rolling_token_windows = utils.get_rolling_token_windows(
             token_list=input_ids,
@@ -130,8 +131,6 @@ class GPT2LM(LM):
             max_seq_len=self.max_seq_len,
             context_len=self.context_len,
         )
-        if not rolling_token_windows:
-            return
 
         # noinspection PyListCreation
         all_logprobs = []
@@ -148,6 +147,9 @@ class GPT2LM(LM):
                 logprobs=block_output["logprobs"],
                 positions=block_output["positions"],
             )
+
+        if not all_logprobs:
+            return None
 
         # Gather
         all_logprobs = np.concatenate(all_logprobs)
