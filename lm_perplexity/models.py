@@ -170,7 +170,6 @@ class GPT2LM(LM):
             print()
 
         positions = np.arange(len(input_tokens) - len(pred_tokens), len(input_tokens))
-        import pdb; pdb.set_trace()
 
         return {
             "logprobs": - neg_logprobs,

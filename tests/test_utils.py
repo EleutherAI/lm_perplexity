@@ -187,3 +187,16 @@ def test_get_rolling_token_windows_v6():
         pred_length += len(pred_tokens)
     assert pred_length == len(x)
     assert gold == output
+
+
+def test_get_rolling_token_windows_empty():
+    generator = get_rolling_token_windows(
+        token_list=[],
+        prefix_token=-100,
+        max_seq_len=2,
+        context_len=1,
+    )
+    n = 0
+    for _ in generator:
+        n += 1
+    assert n == 0
