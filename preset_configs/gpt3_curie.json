@@ -1,4 +1,5 @@
 {
   "model_type": "gpt3",
-  "engine": "curie"
+  "engine": "curie",
+  "context_len": 1
 }

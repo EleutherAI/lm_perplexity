@@ -1,4 +1,5 @@
 {
   "model_type": "gpt3",
-  "engine": "babbage"
+  "engine": "babbage",
+  "context_len": 1
 }

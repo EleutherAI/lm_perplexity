@@ -1,4 +1,5 @@
 {
   "model_type": "gpt3",
-  "engine": "ada"
+  "engine": "ada",
+  "context_len": 1
 }

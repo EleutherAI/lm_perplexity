@@ -33,11 +33,12 @@ class GPT3LM(LM):
         # Read from environment variable OPENAI_API_SECRET_KEY
         openai.api_key = os.environ["OPENAI_API_SECRET_KEY"]
 
+    # noinspection DuplicatedCode
     def get_perplexity_data(self, text) -> dict:
-        # noinspection DuplicatedCode
         input_ids = self.tokenizer.encode_plus(text)["input_ids"]
-        token_windows_and_pred_start = utils.get_rolling_token_windows(
+        rolling_token_windows = utils.get_rolling_token_windows(
             token_list=input_ids,
+            prefix_token=self.end_of_text_token_id,
             max_seq_len=self.max_seq_len,
             context_len=self.context_len,
         )
@@ -45,23 +46,12 @@ class GPT3LM(LM):
         # noinspection PyListCreation
         all_logprobs = []
         logprobs_position_buckets = utils.LogprobsPositionBuckets(self.max_seq_len)
-        # Special handling for first window, which has no context:
-        #   - We add a prefix token, and compute logprobs for all tokens in the first window
-        block_output = self.get_token_logprobs(
-            token_ids=[self.end_of_text_token_id] + token_windows_and_pred_start[0][0],
-            pred_start=1,
-        )
-        all_logprobs.append(block_output["logprobs"])
-        logprobs_position_buckets.update_single(
-            logprobs=block_output["logprobs"],
-            positions=block_output["positions"],
-        )
 
         # Remaining windows
-        for token_window, pred_start in token_windows_and_pred_start[1:]:
+        for input_tokens, pred_tokens in rolling_token_windows:
             block_output = self.get_token_logprobs(
-                token_ids=token_window,
-                pred_start=pred_start,
+                input_tokens=input_tokens,
+                pred_tokens=pred_tokens,
             )
             all_logprobs.append(block_output["logprobs"])
             logprobs_position_buckets.update_single(
@@ -76,10 +66,15 @@ class GPT3LM(LM):
             "avg_logprobs": np.mean(all_logprobs),
             "length": len(all_logprobs),
             "logprobs_position_buckets": logprobs_position_buckets,
-            # "token_logprobs": all_logprobs,
+            "token_logprobs": all_logprobs,
         }
 
-    def get_token_logprobs(self, token_ids, pred_start):
+    def get_token_logprobs(self, input_tokens, pred_tokens):
+        pred_start = len(input_tokens) - len(pred_tokens) + 1
+        # We're going to stitch together the input_tokens and pred_tokens
+        # In the longest case, this gets us to length = max_seq_len+1 (which the API works with)
+        assert input_tokens[pred_start:] == pred_tokens[:-1]
+        token_ids = input_tokens + [pred_tokens[-1]]
         response = openai.Completion.create(
             engine=self.engine,
             prompt=token_ids,
@@ -121,11 +116,12 @@ class GPT2LM(LM):
         self.tokenizer = transformers.GPT2TokenizerFast.from_pretrained(model_name)
         self.end_of_text_token_id = self.tokenizer.convert_tokens_to_ids(["<|endoftext|>"])[0]
 
+    # noinspection DuplicatedCode
     def get_perplexity_data(self, text) -> dict:
-        # noinspection DuplicatedCode
         input_ids = self.tokenizer.encode_plus(text)["input_ids"]
-        token_windows_and_pred_start = utils.get_rolling_token_windows(
+        rolling_token_windows = utils.get_rolling_token_windows(
             token_list=input_ids,
+            prefix_token=self.end_of_text_token_id,
             max_seq_len=self.max_seq_len,
             context_len=self.context_len,
         )
@@ -133,23 +129,12 @@ class GPT2LM(LM):
         # noinspection PyListCreation
         all_logprobs = []
         logprobs_position_buckets = utils.LogprobsPositionBuckets(self.max_seq_len)
-        # Special handling for first window, which has no context:
-        #   - We add a prefix token, and compute logprobs for all tokens in the first window
-        block_output = self.get_token_logprobs(
-            token_ids=[self.end_of_text_token_id] + token_windows_and_pred_start[0][0],
-            pred_start=1,
-        )
-        all_logprobs.append(block_output["logprobs"])
-        logprobs_position_buckets.update_single(
-            logprobs=block_output["logprobs"],
-            positions=block_output["positions"],
-        )
 
         # Remaining windows
-        for token_window, pred_start in token_windows_and_pred_start[1:]:
+        for input_tokens, pred_tokens in rolling_token_windows:
             block_output = self.get_token_logprobs(
-                token_ids=token_window,
-                pred_start=pred_start,
+                input_tokens=input_tokens,
+                pred_tokens=pred_tokens,
             )
             all_logprobs.append(block_output["logprobs"])
             logprobs_position_buckets.update_single(
@@ -164,25 +149,25 @@ class GPT2LM(LM):
             "avg_logprobs": np.mean(all_logprobs),
             "length": len(all_logprobs),
             "logprobs_position_buckets": logprobs_position_buckets,
-            # "token_logprobs": all_logprobs,
+            "token_logprobs": all_logprobs,
         }
 
-    def get_token_logprobs(self, token_ids, pred_start):
-        token_ids = torch.tensor(token_ids).long().to(self.device)
-        # We always drop the last token_id, since we only score predictions on it but never
-        #   condition on it
-        output = self.model(token_ids[:-1], return_dict=True)
+    def get_token_logprobs(self, input_tokens, pred_tokens):
+        input_tokens = torch.tensor(input_tokens).long().to(self.device)
+        pred_tokens = torch.tensor(pred_tokens).long().to(self.device)
+        output = self.model(input_tokens, return_dict=True)
         loss_fct = nn.CrossEntropyLoss(reduction="none")
-        # Reverse the 1-offset from above
-        neg_logprobs = loss_fct(output.logits[pred_start-1:], token_ids[pred_start:]).detach().cpu().numpy()
+        neg_logprobs = loss_fct(
+            output.logits[-len(pred_tokens):],
+            pred_tokens,
+        ).detach().cpu().numpy()
         if self.verbose:
-            print("Context:", self.tokenizer.convert_ids_to_tokens(token_ids))
-            print("Predicting:", self.tokenizer.convert_ids_to_tokens(token_ids)[pred_start:])
+            print("Context:", self.tokenizer.convert_ids_to_tokens(input_tokens))
+            print("Predicting:", self.tokenizer.convert_ids_to_tokens(pred_tokens))
             print("Perplexity:", np.exp(neg_logprobs.mean()))
             print()
 
-        positions = np.arange(pred_start-1, pred_start-1 + len(token_ids[pred_start:]))
-        import pdb; pdb.set_trace()
+        positions = np.arange(len(input_tokens) - len(pred_tokens), len(input_tokens))
 
         return {
             "logprobs": - neg_logprobs,
