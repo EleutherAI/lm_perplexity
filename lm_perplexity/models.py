@@ -72,6 +72,7 @@ class GPT3LM(LM):
             "length": len(all_logprobs),
             "logprobs_position_buckets": logprobs_position_buckets,
             "token_logprobs": all_logprobs,
+            "utf8_length": len(text.encode('utf-8')),
         }
 
     def get_token_logprobs(self, input_tokens, pred_tokens):
@@ -159,6 +160,7 @@ class GPT2LM(LM):
             "length": len(all_logprobs),
             "logprobs_position_buckets": logprobs_position_buckets,
             "token_logprobs": all_logprobs,
+            "utf8_length": len(text.encode('utf-8')),
         }
 
     def get_token_logprobs(self, input_tokens, pred_tokens):
