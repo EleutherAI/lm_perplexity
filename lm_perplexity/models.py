@@ -135,7 +135,7 @@ class GPT2LM(LM):
 
         # noinspection PyListCreation
         all_logprobs = []
-        logprobs_position_buckets = utils.LogprobsPositionBuckets(self.max_seq_len)
+        all_positions = []
 
         # Remaining windows
         for input_tokens, pred_tokens in rolling_token_windows:
@@ -144,22 +144,19 @@ class GPT2LM(LM):
                 pred_tokens=pred_tokens,
             )
             all_logprobs.append(block_output["logprobs"])
-            logprobs_position_buckets.update_single(
-                logprobs=block_output["logprobs"],
-                positions=block_output["positions"],
-            )
+            all_positions.append(block_output["positions"])
 
         if not all_logprobs:
             return None
 
         # Gather
         all_logprobs = np.concatenate(all_logprobs)
+        all_positions = np.concatenate(all_positions)
         assert len(all_logprobs) == len(input_ids)
         return {
-            "avg_logprobs": np.mean(all_logprobs),
+            "logprobs": all_logprobs,
+            "positions": all_positions,
             "length": len(all_logprobs),
-            "logprobs_position_buckets": logprobs_position_buckets,
-            "token_logprobs": all_logprobs,
             "utf8_length": len(text.encode('utf-8')),
         }
 
