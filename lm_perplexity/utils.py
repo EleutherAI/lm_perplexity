@@ -1,6 +1,5 @@
 import contextlib
 import json
-import numpy as np
 import time
 
 WB_MAX_IN_TIME_SPAN = 600
