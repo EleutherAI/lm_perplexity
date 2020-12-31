@@ -35,6 +35,10 @@ python lm_perplexity/compute_perplexity.py \
     --output_path /path/to/perplexity.json
 ```
 
+## Assets
+
+JSON files in `assets/${DATASET}/group${GROUP_ID}.json` contain the document indices for the canonical one-tenth split of the test set. Evaluation in the paper were performed on `group0`. 
+
 ## Requirements
 
 * numpy
